@@ -44,6 +44,10 @@ class phpZoteroEntries {
     } else {
       $el = "atom:$el";
     }
+    
+    if( $el == 'atom:etag' ) {
+      $el = "atom:content/@etag";
+    }
     return $this->xpath->query("//atom:entry[$index]//$el")->item(0)->textContent;
   }
   
@@ -76,7 +80,9 @@ class phpZoteroEntries {
           );
         break;
         case 'content':
+          $data['etag'] = $el->getAttribute('etag');
           $data['content'] = json_decode($el->textContent, true);
+          
         break;
         
         default:
