@@ -21,7 +21,7 @@ class phpZoteroEntries {
         $entries = $this->xpath->query("//atom:entry");
         
         foreach($entries as $entry) {
-          $this->data[] = $this->_parseEntry($entry);
+          $this->data[] = $this->parseEntry($entry);
         }        
       }      
     }
@@ -51,7 +51,7 @@ class phpZoteroEntries {
     return json_encode($this->data);
   }
   
-  protected function _parseEntry($entry) {
+  public function parseEntry($entry) {
     $data = array();
     $els = $entry->getElementsByTagName('*');
         
