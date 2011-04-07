@@ -21,6 +21,31 @@ $zEntries->data[1]['content']['title'] = "Revised Title";
 
 echo $zEntries->getEntryContentAsJson(1); // the default index is 0 
 
-//get the data as JSON suitable for writing to Zotero
+// get the data as JSON suitable for writing to Zotero.  
+// NB -- Zotero write API is not open at the time of this commit
 
 $items = $zEntries->getDataAsItemsJson();
+
+// get a single item, modify it, and update it in Zotero using phpZotero.  
+// NB -- Zotero write API is not open at the time of this commit
+// NB -- phpZotero is also under rapid development and change
+
+
+$key = "xxxxxxxxxxxxxxxxxx"; //your Zotero API key
+$id = #######; //your Zotero id
+$itemkey = "ABCD123"; // the Zotero key (id) for the item
+
+$z = new phpZotero($key);
+$xmlString = $z->getItem($id, $itemkey, array('content'=>'json') );
+
+$zEntry = new phpZoteroEntries($xmlString, true);
+$zEntry->data[0]['content']['title'] = "Revised Title";
+
+$update = $zEntry->getEntryContentAsJson();
+$etag = $zEntry->getEntryElement('etag');
+
+$z->updateItem($id, $update, $itemkey, $etag);
+
+
+
+
