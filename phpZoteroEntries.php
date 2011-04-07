@@ -6,6 +6,12 @@ class phpZoteroEntries {
   public $xpath;
   public $data;
   
+  /**
+   * 
+   * Enter description here ...
+   * @param string $xmlString The Atom returned by a request to the Zotero API
+   * @param boolean $parse Whether to parse the string into a data array
+   */
   
   public function __construct($xmlString = null, $parse = false) {
     
@@ -15,23 +21,56 @@ class phpZoteroEntries {
       $this->xpath = new DOMXPath($this->dom);
       $this->xpath->registerNamespace('atom', 'http://www.w3.org/2005/Atom');
       $this->xpath->registerNamespace('zapi', 'http://zotero.org/ns/api');      
-      $this->data = array( );
+      
       
       if($parse) {
-        $entries = $this->xpath->query("//atom:entry");
-        
+        $this->data = array( );
+        $entries = $this->xpath->query("//atom:entry");        
         foreach($entries as $entry) {
-          $this->data[] = $this->parseEntry($entry);
+          $this->parseEntry($entry, TRUE);
         }        
       }      
     }
   }
-    
+
+  /**
+   * 
+   * Returns the number of entry elements
+   */
+  
   public function entryCount() {
     return $this->xpath->evaluate("count(//atom:entry)");
   }
   
-  public function getEntryElement($el, $index = 1) {
+  /**
+   * 
+   * Return an entry element
+   * 
+   * @param int $index 0-based index of the entry.
+   */
+  
+  public function getEntryByIndex($index) {
+    //since this method works with xpaths, with starting index 1,
+    //let people expect to use 0-based indexes for everything
+    $index++;
+    return $this->xpath->query("//atom:entry[$index]")->item(0);    
+  }
+  
+  /**
+   * 
+   * Returns the data for a field in an element (e.g., 'published', 'id', etc.)
+   * Namespaces are (mostly) are sorted out for you
+   * The commonly-used 'etag' can be passed directly as the element
+   * 
+   * @param string $el The element inside the entry (xpaths should work, too)
+   * @param int $index The 0-based index of the entry
+   */
+  
+  public function getEntryElement($el, $index = 0) {
+    //since this method works with xpaths, with starting index 1,
+    //let people expect to use 0-based indexes for everything
+    $index++;
+    
     $zapiEls = array(
       'key',
       'itemType',
@@ -51,11 +90,56 @@ class phpZoteroEntries {
     return $this->xpath->query("//atom:entry[$index]//$el")->item(0)->textContent;
   }
   
+  /**
+   * 
+   * Returns the parsed data as JSON
+   * @throws Exception
+   */
   public function getDataAsJson() {
+    if(!isset($this->data)) {
+      throw new Exception("Entries must be parsed first.");
+    }    
     return json_encode($this->data);
   }
   
-  public function parseEntry($entry) {
+  /**
+   * 
+   * Returns the content for an entry as JSON
+   * @param int $index The 0-based index of the entry
+   * @throws Exception
+   */
+  public function getEntryContentAsJson($index = 0) {
+    if(!isset($this->data)) {
+      throw new Exception("Entries must be parsed first.");
+    }
+    return json_encode($this->data[$index]['content']);
+  }
+
+  /**
+   * 
+   * Returns the data as a JSON object of items, suitable for passing to
+   * the Zotero API create method
+   * @throws Exception
+   */
+  public function getDataAsItemsJson() {
+    if(!isset($this->data)) {
+      throw new Exception("Entries must be parsed first.");
+    }    
+    $items = array('items' => array() );
+    foreach($this->data as $index=>$entryData) {
+      $items['items'][] = $this->getEntryContentAsJson($index);
+    }
+    return json_encode($items);
+  }
+  /**
+   * 
+   * Parses an <entry> element into a data array (mostly) hashed by tag name
+   * <link>s are moved to a hash based on their @rel value
+   * @param DOMElement $entry
+   * @param boolean $addToData Whether to add the data to the instances data property
+   * @return array 
+   */
+  public function parseEntry($entry, $addToData = FALSE) {
     $data = array();
     $els = $entry->getElementsByTagName('*');
         
@@ -71,7 +155,7 @@ class phpZoteroEntries {
               'zapi:key' => $key            
             );
           }
-        break;
+        break; 
         case 'author':
           //TODO: handle the nested author info
           $data['author'] = array(
@@ -81,7 +165,12 @@ class phpZoteroEntries {
         break;
         case 'content':
           $data['etag'] = $el->getAttribute('etag');
-          $data['content'] = json_decode($el->textContent, true);
+          //see if the content is json
+          if($el->getAttribute('type') == 'application/json') {
+            $data['content'] = json_decode($el->textContent, true);
+          } else {
+            $data['content'] = $el->textContent;
+          }          
           
         break;
         
@@ -91,6 +180,11 @@ class phpZoteroEntries {
       }
       
     }
+    if($addToData) {
+      $this->data[] = $data;  
+    }
+    
     return $data;
   }
+  
 }
