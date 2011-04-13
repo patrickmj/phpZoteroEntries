@@ -1,5 +1,6 @@
 <?php
 
+
 class phpZoteroEntries {
   
   public $dom;
@@ -13,26 +14,35 @@ class phpZoteroEntries {
    * @param boolean $parse Whether to parse the string into a data array
    */
   
-  public function __construct($xmlString = null, $parse = false) {
+  public function __construct($xmlString = null, $parse = true) {
     
     if($xmlString !== null) {
-      $this->dom = new DomDocument();    
-      $this->dom->loadXML($xmlString);
-      $this->xpath = new DOMXPath($this->dom);
-      $this->xpath->registerNamespace('atom', 'http://www.w3.org/2005/Atom');
-      $this->xpath->registerNamespace('zapi', 'http://zotero.org/ns/api');      
-      
-      
-      if($parse) {
-        $this->data = array( );
-        $entries = $this->xpath->query("//atom:entry");        
-        foreach($entries as $entry) {
-          $this->parseEntry($entry, TRUE);
-        }        
-      }      
+      $this->resetXML($xml, $parse);
     }
   }
 
+  public function setDataFromTemplate($template) {    
+    $data = array('content' => json_decode($template, true) );
+    $this->data[] = $data;    
+  }
+  
+  public function resetXML($xml, $parse = true ) {
+    $this->dom = new DomDocument();    
+    $this->dom->loadXML($xml);
+    $this->xpath = new DOMXPath($this->dom);
+    $this->xpath->registerNamespace('atom', 'http://www.w3.org/2005/Atom');
+    $this->xpath->registerNamespace('zapi', 'http://zotero.org/ns/api');      
+            
+    if($parse) {
+      $this->data = array( );
+      $entries = $this->xpath->query("//atom:entry");        
+      foreach($entries as $entry) {
+        $this->parseEntry($entry, TRUE);
+      }        
+    }    
+  }
+  
+  
   /**
    * 
    * Returns the number of entry elements
@@ -114,6 +124,19 @@ class phpZoteroEntries {
     }
     return json_encode($this->data[$index]['content']);
   }
+  
+  public function setEntryProperty($prop, $value, $index = 0) {
+    if(isset($this->data[$index]['content'][$prop])) {
+      $this->data[$index]['content'][$prop] = $value;  
+    } else {
+      throw new Exception("$prop is not a valid field for item type " . $this->data[$index]['content']['itemType'] );
+    }
+    
+  }
+  
+  public function getEntryContent($index = 0) {
+    return $this->data[$index]['content'];
+  }
 
   /**
    * 
@@ -125,9 +148,9 @@ class phpZoteroEntries {
     if(!isset($this->data)) {
       throw new Exception("Entries must be parsed first.");
     }    
-    $items = array('items' => array() );
+    $items = array("items" => array() );
     foreach($this->data as $index=>$entryData) {
-      $items['items'][] = $this->getEntryContentAsJson($index);
+      $items["items"][] = $entryData['content'];
     }
     return json_encode($items);
   }
